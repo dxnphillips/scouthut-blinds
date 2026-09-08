@@ -1,0 +1,28 @@
+set_favourite:
+  name: Set favourite
+  description: >-
+    Send the blind to its single stored favourite position (the gp command).
+    Waits for the blind to be stationary first, so bf motors reliably honour the
+    command. Set the favourite itself in the NeoSmartBlinds app.
+  target:
+    entity:
+      integration: neosmartblinds
+      domain: cover
+
+send_command:
+  name: Send raw command
+  description: >-
+    Send a raw motor command straight to the blind, bypassing the position
+    model. For troubleshooting only. Examples: up, dn, sp, gp.
+  target:
+    entity:
+      integration: neosmartblinds
+      domain: cover
+  fields:
+    command:
+      name: Command
+      description: The two character motor command to send (for example up, dn, sp, gp).
+      required: true
+      example: gp
+      selector:
+        text:

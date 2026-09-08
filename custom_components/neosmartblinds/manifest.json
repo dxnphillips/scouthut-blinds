@@ -1,0 +1,13 @@
+{
+  "domain": "neosmartblinds",
+  "name": "NeoSmartBlinds (Scout Hut)",
+  "codeowners": ["@dxnphillips"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/dxnphillips/scouthut-blinds",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/dxnphillips/scouthut-blinds/issues",
+  "requirements": [],
+  "version": "3.0.0"
+}

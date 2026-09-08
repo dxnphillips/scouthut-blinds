@@ -1,0 +1,111 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NeoSmartBlinds hub",
+        "description": "Point this at your NeoSmartBlinds controller. TCP on port 8839 is recommended: the HTTP path derives its deduplication hash from the microsecond clock, which is weaker than the vendor recommends and can silently drop a frame. Add your blinds afterwards from the integration options.",
+        "data": {
+          "name": "Name",
+          "host": "Hub IP address",
+          "hub_id": "Hub ID (the 24 character controller ID from the app)",
+          "protocol": "Protocol",
+          "port": "Port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This hub is already configured."
+    },
+    "error": {
+      "required": "This field is required."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "NeoSmartBlinds options",
+        "description": "Add, edit or remove blinds, and tune the command timing and repeats. Choose Save changes when you are done, or close without saving to discard.",
+        "menu_options": {
+          "add_blind": "Add a blind",
+          "edit_select": "Edit a blind",
+          "remove_blind": "Remove a blind",
+          "tuning": "Command timing and repeats",
+          "save": "Save changes"
+        }
+      },
+      "add_blind": {
+        "title": "Add a blind",
+        "description": "The blind code and motor code come from the NeoSmartBlinds app. Every bf motor blind must carry its motor code (usually bf). Set close time to the real measured full travel, timed with a stopwatch.",
+        "data": {
+          "name": "Name",
+          "blind_code": "Blind code (for example 021.230-04)",
+          "motor_code": "Motor code (for example bf)",
+          "close_time": "Full travel time in seconds",
+          "rail": "Rail",
+          "percent_support": "Positioning mode",
+          "parent_group": "Group (room) code for aggregation, optional (for example 021.230-15)",
+          "start_position": "Start position, percent open, only used in a positioning mode"
+        }
+      },
+      "edit_select": {
+        "title": "Edit a blind",
+        "data": {
+          "id": "Blind"
+        }
+      },
+      "edit_blind": {
+        "title": "Edit {name}",
+        "description": "The blind code and motor code come from the NeoSmartBlinds app. Set close time to the real measured full travel.",
+        "data": {
+          "name": "Name",
+          "blind_code": "Blind code (for example 021.230-04)",
+          "motor_code": "Motor code (for example bf)",
+          "close_time": "Full travel time in seconds",
+          "rail": "Rail",
+          "percent_support": "Positioning mode",
+          "parent_group": "Group (room) code for aggregation, optional (for example 021.230-15)",
+          "start_position": "Start position, percent open, only used in a positioning mode"
+        }
+      },
+      "remove_blind": {
+        "title": "Remove a blind",
+        "data": {
+          "id": "Blinds to remove"
+        }
+      },
+      "tuning": {
+        "title": "Command timing and repeats",
+        "description": "These control how commands are spaced and repeated. If the blinds appear to move on their own (flapping), the repeats are the first thing to look at: they re-send a drive after the blind is at rest, so a repeat that lands too late re-drives it. Keep the repeats inside a single travel, or set the count to 0 to switch them off while diagnosing. Never set the command backoff below 0.5 seconds, the hub needs that long to process each frame.",
+        "data": {
+          "repeat_count": "End stop repeats (0 disables repeats)",
+          "repeat_spacing": "Seconds between repeats",
+          "repeat_stop": "Also repeat stop commands",
+          "favourite_repeat": "Send one delayed favourite repeat",
+          "favourite_idle_guard": "Favourite idle guard, seconds a blind must be stopped before gp",
+          "favourite_settle_timeout": "Favourite settle timeout, seconds to wait for a moving blind before gp",
+          "command_backoff": "Minimum seconds between commands (never below 0.5)",
+          "aggregation_period": "Group aggregation window in seconds",
+          "io_timeout": "Connection timeout in seconds",
+          "log_commands": "Log every transmitted command at info level"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_favourite": {
+      "name": "Set favourite",
+      "description": "Send the blind to its single stored favourite position (gp), waiting for it to be stationary first.",
+      "fields": {}
+    },
+    "send_command": {
+      "name": "Send raw command",
+      "description": "Send a raw motor command straight to the blind, for troubleshooting.",
+      "fields": {
+        "command": {
+          "name": "Command",
+          "description": "The two character motor command to send (for example up, dn, sp, gp)."
+        }
+      }
+    }
+  }
+}
