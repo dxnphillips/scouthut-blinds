@@ -182,7 +182,7 @@ class BlindClient:
 
     def cancel_pending_repeats(self) -> None:
         """Cancel this blind's (and its group's) pending repeat tail now."""
-        self._hub.cancel_conflicting_repeats(self.device, self.parent_code)
+        self._hub.supersede_individual(self.device, self.parent_code)
 
     # -- rail aware command helpers ---------------------------------------
 
@@ -369,13 +369,18 @@ class NeoHub:
     ) -> bool:
         """Send a command for a blind, aggregating and scheduling repeats.
 
-        A new command first supersedes any pending repeats for this blind, its
-        group, and (if this blind IS being broadcast to its group) its children,
-        so a stop can never be chased by a stale repeat of the move it stopped.
+        The pending repeats are superseded AFTER the aggregation decision, and
+        the supersession is scope aware, which is what keeps the long repeat
+        schedule safe. A group broadcast drops the old group tail and every
+        member's individual tail (channel 15 is now the one source of truth for
+        the whole room). An individual command drops its own tail and the group
+        tail, and hands the group's remaining intent to the OTHER members only.
+        Either way, no physical blind is ever left with two pending tails, so a
+        group repeat and an individual repeat can never drive one blind opposite
+        ways.
         """
         device = client.device
         parent = client.parent_code
-        self.cancel_conflicting_repeats(device, parent)
 
         action = _USE_DEVICE
         if parent and parent in self._parents:
@@ -386,6 +391,7 @@ class NeoHub:
                 agg.unregister_intent()
 
         if action == _CHANGE_DEVICE:
+            self._supersede_group(parent)
             await self._backoff()
             ok = await self._transmit(
                 parent, command, client.motor_code, "group", "group broadcast"
@@ -400,6 +406,7 @@ class NeoHub:
             )
             return True
 
+        self.supersede_individual(device, parent)
         await self._backoff()
         ok = await self._transmit(device, command, client.motor_code, "command", reason)
         self._schedule_repeats(client, command, device)
@@ -421,11 +428,9 @@ class NeoHub:
     def _repeat_delays(self, client: BlindClient, command: str) -> list[float]:
         """Delays (each after the previous attempt) for a command's repeats."""
         if command in REPEATABLE_DRIVES:
-            count = self.tuning.repeat_count
-            return [self.tuning.repeat_spacing] * count
+            return list(self.tuning.repeat_schedule)
         if command == CMD_STOP and self.tuning.repeat_stop:
-            count = self.tuning.repeat_count
-            return [self.tuning.repeat_spacing] * count
+            return list(self.tuning.repeat_schedule)
         if command == CMD_FAV and self.tuning.favourite_repeat:
             return [client.gp_repeat_delay]
         return []
@@ -496,36 +501,47 @@ class NeoHub:
                 task.cancel()
         return record
 
-    def cancel_conflicting_repeats(self, device: str, parent: str) -> None:
-        """Cancel every pending repeat a new command for ``device`` supersedes.
+    def _supersede_group(self, parent: str) -> None:
+        """Clear everything a fresh group broadcast replaces.
 
-        The device's own repeats, its group's repeats (an individual command
-        invalidates a broadcast intent), and, when the command IS the group, all
-        of its children's repeats. When an individual command cancels a group
-        tail, the group's intent is still valid for every OTHER blind in the
-        group, so the remaining tail is re-issued to them individually rather
-        than thrown away.
+        The new channel 15 tail will drive every member in the new direction, so
+        the old group tail and every member's own individual tail are cancelled
+        with nothing inherited. This is what stops a group broadcast leaving a
+        member with a stale, opposite individual tail still running.
+        """
+        self._cancel_repeats(parent)
+        for child in self._group_children.get(parent, ()):
+            self._cancel_repeats(child)
+
+    def supersede_individual(self, device: str, parent: str) -> None:
+        """Clear everything a fresh individual command for ``device`` replaces.
+
+        This blind's own tail goes, and so does the group tail, because the group
+        broadcast on channel 15 would keep driving this blind the group's way and
+        fight the command just issued to it. The group's intent is still valid
+        for every OTHER member though, so the group tail's remaining attempts are
+        re-issued to them individually rather than thrown away. Only an
+        individual command inherits; a group broadcast never does.
         """
         self._cancel_repeats(device)
-
-        if parent:
-            group_record = self._cancel_repeats(parent)
-            if group_record is not None:
-                remaining = group_record.get("remaining") or []
-                command = group_record.get("command")
-                if remaining and command is not None:
-                    for child in self._group_children.get(parent, ()):
-                        if child == device:
-                            continue
-                        child_client = self._child_senders.get(child)
-                        if child_client is None:
-                            continue
-                        self._schedule_repeats_with_delays(
-                            child_client, command, child, list(remaining)
-                        )
-
-        for child in self._group_children.get(device, ()):  # device may be a group
-            self._cancel_repeats(child)
+        if not parent:
+            return
+        group_record = self._cancel_repeats(parent)
+        if group_record is None:
+            return
+        remaining = group_record.get("remaining") or []
+        command = group_record.get("command")
+        if not remaining or command is None:
+            return
+        for child in self._group_children.get(parent, ()):
+            if child == device:
+                continue
+            child_client = self._child_senders.get(child)
+            if child_client is None:
+                continue
+            self._schedule_repeats_with_delays(
+                child_client, command, child, list(remaining)
+            )
 
     # -- transport ---------------------------------------------------------
 

@@ -116,10 +116,9 @@
       },
       "tuning": {
         "title": "Command timing and repeats",
-        "description": "These control how commands are spaced and repeated. If the blinds appear to move on their own (flapping), the repeats are the first thing to look at: they re-send a drive after the blind is at rest, so a repeat that lands too late re-drives it. Keep the repeats inside a single travel, or set the count to 0 to switch them off while diagnosing. Never set the command backoff below 0.5 seconds, the hub needs that long to process each frame.",
+        "description": "The RF to these motors is lossy, so open and close commands are re-sent on an escalating schedule until every blind catches a frame. The schedule is a comma separated list of seconds, each value being the wait after the previous attempt (the default spreads eight attempts across about seventeen minutes). Leave it blank to switch repeats off. The repeats are safe at any length: a blind never receives two repeats driving it opposite ways. Never set the command backoff below 0.5 seconds, the hub needs that long to process each frame.",
         "data": {
-          "repeat_count": "End stop repeats (0 disables repeats)",
-          "repeat_spacing": "Seconds between repeats",
+          "repeat_schedule": "Repeat schedule (seconds, comma separated, blank to disable)",
           "repeat_stop": "Also repeat stop commands",
           "favourite_repeat": "Send one delayed favourite repeat",
           "favourite_idle_guard": "Favourite idle guard, seconds a blind must be stopped before gp",

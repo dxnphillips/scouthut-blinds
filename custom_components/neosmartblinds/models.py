@@ -162,8 +162,7 @@ class HubTuning:
     command_backoff: float
     aggregation_period: float
     io_timeout: float
-    repeat_count: int
-    repeat_spacing: float
+    repeat_schedule: list[float]
     repeat_stop: bool
     favourite_repeat: bool
     favourite_idle_guard: float

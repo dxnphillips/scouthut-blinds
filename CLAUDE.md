@@ -68,14 +68,19 @@ insurance. The echo is read only to log a mismatch warning.
 TCP connections and needs at least 500ms per frame. The connection lock and the
 backoff enforce this. Never remove the lock; never set the backoff below 0.5.
 
-**End stop repeats must stay inside a travel.** up and down drive to a hard end
-stop, so a re-send is idempotent **while the blind is still travelling**. Once
-the blind is at rest, a repeat re-drives it, and because there is no feedback it
-does this regardless of any manual, app or unseen command since. That late
-re-drive is the prime suspect for the flapping. The repeat window is deliberately
-short (two repeats, six seconds apart by default) and fully tunable, and can be
-set to zero. Do not restore a minutes long escalating schedule without evidence
-from the diagnostics that genuine RF loss (not late re-drives) needs it.
+**End stop repeats are long on purpose, and made safe by scope aware
+cancellation.** up and down drive to a hard end stop, so a re-send is idempotent
+whenever it lands. The RF loss on this hardware is severe enough that it can take
+the whole escalating schedule (eight attempts over about seventeen minutes by
+default) for every blind in a group to catch a frame, so the long schedule is
+required, not paranoia. Do not shorten it to "fix" flapping. The flap came from a
+group code tail and an individual code tail both driving one physical blind
+(channel 15 reaches every member) with opposite directions. That is prevented in
+`hub.py`: a group broadcast (`_supersede_group`) clears every member's individual
+tail so channel 15 is the sole driver; an individual command
+(`supersede_individual`) clears its own and the group tail and inherits the group
+intent to the OTHER members only. A blind must never be able to hold two tails.
+Keep that invariant. The schedule is one tunable list (blank disables).
 
 **The favourite is guarded.** ``bf`` motors ignore ``gp`` unless stopped for
 about three seconds. The favourite path waits for settle, waits out the worst
@@ -104,11 +109,13 @@ it: a press drives the whole group in one service call and lets the hub
 serialise. Do not add a mutex back. The only per button state is a debounce
 (busy through the travel and cooldown) so one button cannot re-trigger itself.
 
-**A new command supersedes pending repeats.** Before sending, a command cancels
-pending repeats for the blind, its group, and (if it is a group broadcast) its
-children, so a stop can never be chased by a stale repeat of the move it
-stopped. When an individual command cancels a group tail, the tail is re-issued
-to the group's other blinds rather than thrown away.
+**A new command supersedes pending repeats, after the aggregation decision.**
+The supersession runs once the send knows whether it is a group broadcast or an
+individual command, because the two behave differently (see the repeat decision
+above). A group broadcast inherits nothing; an individual command inherits the
+group tail to its siblings. Doing this before the decision, or with one code
+path for both, is what let opposite tails coexist. So a stop can never be chased
+by a stale repeat of the move it stopped, and no blind holds two tails.
 
 ## Conventions
 

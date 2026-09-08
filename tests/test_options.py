@@ -5,20 +5,25 @@ from __future__ import annotations
 from custom_components.neosmartblinds.const import (
     CONF_BLINDS,
     CONF_COMMAND_BACKOFF,
-    CONF_REPEAT_COUNT,
+    CONF_REPEAT_SCHEDULE,
     DEFAULT_COMMAND_BACKOFF,
-    DEFAULT_REPEAT_COUNT,
-    MAX_REPEAT_COUNT,
+    DEFAULT_REPEAT_SCHEDULE,
+    MAX_REPEAT_ENTRIES,
     MIN_COMMAND_BACKOFF,
+    MIN_REPEAT_SPACING,
 )
 from custom_components.neosmartblinds.models import BlindConfig
-from custom_components.neosmartblinds.options import blinds_from_options, build_tuning
+from custom_components.neosmartblinds.options import (
+    blinds_from_options,
+    build_tuning,
+    parse_repeat_schedule,
+)
 
 
 def test_defaults() -> None:
     tuning = build_tuning({})
     assert tuning.command_backoff == DEFAULT_COMMAND_BACKOFF
-    assert tuning.repeat_count == DEFAULT_REPEAT_COUNT
+    assert tuning.repeat_schedule == list(DEFAULT_REPEAT_SCHEDULE)
     assert tuning.log_commands is True
 
 
@@ -28,11 +33,22 @@ def test_backoff_floor() -> None:
     assert tuning.command_backoff == MIN_COMMAND_BACKOFF
 
 
-def test_repeat_count_bounds() -> None:
-    """A repeat count is clamped to a sane range, and zero is allowed."""
-    assert build_tuning({CONF_REPEAT_COUNT: -5}).repeat_count == 0
-    assert build_tuning({CONF_REPEAT_COUNT: 0}).repeat_count == 0
-    assert build_tuning({CONF_REPEAT_COUNT: 999}).repeat_count == MAX_REPEAT_COUNT
+def test_schedule_parsing() -> None:
+    """A schedule reads from a list or a comma string, and is clamped."""
+    assert parse_repeat_schedule([4, 15, 45]) == [4, 15, 45]
+    assert parse_repeat_schedule("4, 15, 45") == [4, 15, 45]
+    # Blank means no repeats.
+    assert parse_repeat_schedule("") == []
+    assert parse_repeat_schedule([]) == []
+    # Each entry is floored at the minimum spacing, and junk is dropped.
+    assert parse_repeat_schedule("0.1, x, 5") == [MIN_REPEAT_SPACING, 5]
+    # Length is capped.
+    assert len(parse_repeat_schedule([1] * 50)) == MAX_REPEAT_ENTRIES
+
+
+def test_schedule_through_build_tuning() -> None:
+    assert build_tuning({CONF_REPEAT_SCHEDULE: "4, 8"}).repeat_schedule == [4, 8]
+    assert build_tuning({CONF_REPEAT_SCHEDULE: ""}).repeat_schedule == []
 
 
 def test_blinds_roundtrip() -> None:

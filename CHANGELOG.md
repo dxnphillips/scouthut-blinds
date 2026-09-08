@@ -3,6 +3,23 @@
 All notable changes to NeoSmartBlinds (Scout Hut) are recorded here. This
 project follows [semantic versioning](https://semver.org).
 
+## 3.2.0
+
+- **Flapping fix, and the repeats are kept long.** The RF loss is severe enough
+  that it can take the whole escalating window for every blind to catch a frame
+  and open, so the eight attempt, roughly seventeen minute schedule is restored
+  as the default (now one configurable schedule field, blank to disable). The
+  flap was never the schedule's length. A repeat keyed to a group code and one
+  keyed to an individual code can both drive the same physical blind, because a
+  channel 15 broadcast reaches every member, and the old cancellation could
+  leave those two carrying opposite directions at once, so a blind got
+  group-down, individual-up, group-down. Cancellation is now scope aware: a whole
+  hall broadcast clears the old group tail and every member's individual tail
+  (channel 15 becomes the single source of truth), while an individual command
+  clears its own and the group tail and hands the group intent to the other
+  members only. A blind can never hold two opposite tails, so the long repeats
+  are safe. Full analysis in `docs/FLAPPING.md`.
+
 ## 3.1.0
 
 - **Entity ids are preserved from the YAML platform.** Each blind is now its own
@@ -38,13 +55,10 @@ diagnostics the script could not provide.
   counters and last command, and a hub connectivity binary sensor.
 - **Structured logging.** Every command, repeat, aggregation decision and
   transport failure is recorded and, with the log option on, logged at info.
-- **Flapping change: the end stop repeat is short and tunable.** The earlier
-  fork spread eight drive repeats across roughly seventeen minutes. Because
-  these motors give no feedback, a repeat fired minutes after a command
-  re-drives the blind to an end stop regardless of anything that happened since,
-  which is the most likely cause of the blinds flapping. Repeats now default to
-  two, six seconds apart, stay inside a single travel, are fully configurable,
-  and can be switched off entirely. Stop is no longer repeated by default.
+- **End stop repeats.** up and down are re-sent on a schedule to beat the lossy
+  RF, and the favourite gets one delayed repeat once the blind is stationary.
+  Scheduled even when the TCP attempt fails, so a repeat doubles as the retry for
+  a transient hub outage.
 - **Per entry state.** The single connection lock, backoff clock, group
   aggregation and repeat scheduler moved off module globals onto a per entry hub
   object. This fixes by construction the reload leak where the group child

@@ -55,8 +55,7 @@ CONF_PARENT: Final = "parent_group"
 CONF_COMMAND_BACKOFF: Final = "command_backoff"
 CONF_AGGREGATION_PERIOD: Final = "aggregation_period"
 CONF_IO_TIMEOUT: Final = "io_timeout"
-CONF_REPEAT_COUNT: Final = "repeat_count"
-CONF_REPEAT_SPACING: Final = "repeat_spacing"
+CONF_REPEAT_SCHEDULE: Final = "repeat_schedule"
 CONF_REPEAT_STOP: Final = "repeat_stop"
 CONF_FAV_REPEAT: Final = "favourite_repeat"
 CONF_FAV_IDLE_GUARD: Final = "favourite_idle_guard"
@@ -164,26 +163,33 @@ DEFAULT_FAV_REPEAT: Final = True
 # End stop repeat scheduler
 #
 # The RF hop from hub to motor is lossy and misses are frequent, but up/dn drive
-# to a hard end stop, so re-sending them is idempotent and safe WHILE the blind
-# is still travelling to that end stop.
+# to a hard end stop, so re-sending them is idempotent whenever they land: a
+# continuation while the blind is still travelling, a no op once it is at the end
+# stop. On the hut hardware the loss is severe enough that it can take the whole
+# escalating window for every blind in a group to catch a frame and open, so the
+# repeats are essential, not optional.
 #
-# Flapping change (this fork): the earlier YAML fork spread eight repeats across
-# roughly seventeen minutes on the theory that local interference arrives in
-# bursts. That is the most likely cause of the blinds appearing to move on their
-# own: these motors give no position feedback, so a repeat fired minutes after
-# the original re-drives the blind to an end stop regardless of anything the
-# user did with the physical remote or the vendor app in the meantime, and
-# regardless of any command that arrived from a source this integration cannot
-# see. A late idempotent re-send is only genuinely safe within the travel
-# window. The default is therefore a small number of closely spaced repeats that
-# stay inside a normal travel, and the whole thing is tunable (and can be turned
-# off) from the options so it can be dialled in against the new diagnostics.
-DEFAULT_REPEAT_COUNT: Final = 2
-DEFAULT_REPEAT_SPACING: Final = 6.0
-MAX_REPEAT_COUNT: Final = 10
-# Stop is idempotent too (a stop to a stationary blind is a no op) but a stop
-# rarely benefits from more than the original, and a repeated stop cannot help a
-# blind that already stopped. Off by default; opt in if a lost stop is seen.
+# The schedule ESCALATES on purpose. Local 433MHz interference arrives in bursts
+# lasting tens of seconds, so attempts bunched a few seconds apart all fall in
+# one burst and fail together; spreading them over minutes samples different
+# moments on the air. Each entry is the delay in seconds AFTER the previous
+# attempt.
+#
+# The flapping was never the length of this schedule. It was that a repeat keyed
+# to a group code and a repeat keyed to an individual code can both drive the
+# same physical blind (channel 15 reaches every member), and the cancellation
+# could leave those two carrying OPPOSITE directions at once. That is fixed in
+# the hub by making cancellation direction and scope aware (see hub.py), so a
+# blind never has two opposite tails pending, and the long schedule is safe.
+DEFAULT_REPEAT_SCHEDULE: Final = (4.0, 15.0, 45.0, 120.0, 240.0, 300.0, 300.0, 300.0)
+# A hard cap on how many repeats a hand typed schedule can request.
+MAX_REPEAT_ENTRIES: Final = 16
+# Minimum spacing between any two attempts, so a schedule cannot violate the
+# command backoff floor.
+MIN_REPEAT_SPACING: Final = 0.5
+# Stop is idempotent too (a stop to a stationary blind is a no op) but a repeated
+# stop cannot help a blind that already stopped. Off by default; opt in if a lost
+# stop is seen. When on, it uses the same schedule.
 DEFAULT_REPEAT_STOP: Final = False
 
 # How many recent command records the hub keeps for the diagnostics dump.

@@ -19,8 +19,7 @@ from .const import (
     CONF_FAV_SETTLE_TIMEOUT,
     CONF_IO_TIMEOUT,
     CONF_LOG_COMMANDS,
-    CONF_REPEAT_COUNT,
-    CONF_REPEAT_SPACING,
+    CONF_REPEAT_SCHEDULE,
     CONF_REPEAT_STOP,
     DEFAULT_AGGREGATION_PERIOD,
     DEFAULT_COMMAND_BACKOFF,
@@ -28,21 +27,48 @@ from .const import (
     DEFAULT_FAV_REPEAT,
     DEFAULT_FAV_SETTLE_TIMEOUT,
     DEFAULT_IO_TIMEOUT,
-    DEFAULT_REPEAT_COUNT,
-    DEFAULT_REPEAT_SPACING,
+    DEFAULT_REPEAT_SCHEDULE,
     DEFAULT_REPEAT_STOP,
-    MAX_REPEAT_COUNT,
+    MAX_REPEAT_ENTRIES,
     MIN_COMMAND_BACKOFF,
+    MIN_REPEAT_SPACING,
 )
 from .models import BlindConfig, ButtonBinding, HubTuning
+
+
+def parse_repeat_schedule(value: Any) -> list[float]:
+    """Turn a stored or typed repeat schedule into a clamped list of delays.
+
+    Accepts a list of numbers or a comma separated string of seconds. Each entry
+    is floored at the minimum spacing so a schedule cannot beat the command
+    backoff, and the whole thing is capped in length. An empty schedule means no
+    repeats.
+    """
+    if value is None:
+        items: list[Any] = list(DEFAULT_REPEAT_SCHEDULE)
+    elif isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    else:
+        items = list(value)
+
+    delays: list[float] = []
+    for item in items:
+        try:
+            delay = float(item)
+        except (TypeError, ValueError):
+            continue
+        if delay <= 0:
+            continue
+        delays.append(max(MIN_REPEAT_SPACING, delay))
+    return delays[:MAX_REPEAT_ENTRIES]
 
 
 def build_tuning(options: Mapping[str, Any]) -> HubTuning:
     """Resolve the timing and repeat options, clamped to safe bounds.
 
-    The backoff floor and the repeat count cap are enforced here so an option
-    typed by hand cannot drive the hub below the vendor's 500ms spacing or
-    schedule an unbounded repeat storm.
+    The backoff floor, the repeat spacing floor and the schedule length cap are
+    enforced here so an option typed by hand cannot drive the hub below the
+    vendor's 500ms spacing or schedule an unbounded repeat storm.
     """
     return HubTuning(
         command_backoff=max(
@@ -53,13 +79,7 @@ def build_tuning(options: Mapping[str, Any]) -> HubTuning:
             0.0, float(options.get(CONF_AGGREGATION_PERIOD, DEFAULT_AGGREGATION_PERIOD))
         ),
         io_timeout=max(1.0, float(options.get(CONF_IO_TIMEOUT, DEFAULT_IO_TIMEOUT))),
-        repeat_count=min(
-            MAX_REPEAT_COUNT,
-            max(0, int(options.get(CONF_REPEAT_COUNT, DEFAULT_REPEAT_COUNT))),
-        ),
-        repeat_spacing=max(
-            0.5, float(options.get(CONF_REPEAT_SPACING, DEFAULT_REPEAT_SPACING))
-        ),
+        repeat_schedule=parse_repeat_schedule(options.get(CONF_REPEAT_SCHEDULE)),
         repeat_stop=bool(options.get(CONF_REPEAT_STOP, DEFAULT_REPEAT_STOP)),
         favourite_repeat=bool(options.get(CONF_FAV_REPEAT, DEFAULT_FAV_REPEAT)),
         favourite_idle_guard=max(

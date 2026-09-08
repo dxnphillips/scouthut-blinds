@@ -6,10 +6,12 @@ import asyncio
 
 from scout_testkit import FakeHass, make_blind, make_hub
 
+from custom_components.neosmartblinds.const import CONF_FAV_REPEAT
+
 
 def _capture_hub():
     """A hub whose transport records frames and whose backoff is a no op."""
-    hub = make_hub(FakeHass(), repeat_count=0)
+    hub = make_hub(FakeHass(), repeat_schedule=[], **{CONF_FAV_REPEAT: False})
     sent: list[tuple[str, str, str]] = []
 
     async def fake_tcp(device: str, command: str, mc: str) -> str:
@@ -82,7 +84,7 @@ def test_motor_code_suffix() -> None:
 
 def test_transport_failure_is_counted() -> None:
     async def _run() -> None:
-        hub = make_hub(FakeHass(), repeat_count=0)
+        hub = make_hub(FakeHass(), repeat_schedule=[])
 
         async def failing_tcp(device: str, command: str, mc: str) -> str:
             raise OSError("connection refused")

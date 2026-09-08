@@ -1,4 +1,10 @@
-"""The end stop repeat policy and cancellation, the flapping surface."""
+"""The end stop repeat policy and cancellation, the flapping surface.
+
+The repeats themselves are essential: the RF is lossy enough that it can take the
+whole escalating schedule for every blind to catch a frame. So these tests fix
+on the real invariant, that no physical blind is ever left with two pending
+tails driving it opposite ways.
+"""
 
 from __future__ import annotations
 
@@ -13,52 +19,48 @@ from custom_components.neosmartblinds.const import (
     CMD_UP,
     CONF_FAV_REPEAT,
     CONF_REPEAT_STOP,
+    DEFAULT_REPEAT_SCHEDULE,
 )
 
 
-def test_drive_repeats_follow_count_and_spacing() -> None:
-    hub = make_hub(FakeHass(), repeat_count=3, repeat_spacing=5)
+def test_drive_repeats_use_the_schedule() -> None:
+    hub = make_hub(FakeHass(), repeat_schedule=[5, 5, 5])
     client = hub.client_for(make_blind())
     assert hub._repeat_delays(client, CMD_UP) == [5, 5, 5]
     assert hub._repeat_delays(client, CMD_DOWN) == [5, 5, 5]
 
 
-def test_zero_repeats_disables_drive_repeats() -> None:
-    """The flapping switch: a count of zero schedules no drive repeats."""
-    hub = make_hub(FakeHass(), repeat_count=0)
+def test_default_schedule_is_the_escalating_one() -> None:
+    """Out of the box the long escalating schedule is used, the hut needs it."""
+    hub = make_hub(FakeHass())
+    client = hub.client_for(make_blind())
+    assert hub._repeat_delays(client, CMD_UP) == list(DEFAULT_REPEAT_SCHEDULE)
+
+
+def test_empty_schedule_disables_drive_repeats() -> None:
+    hub = make_hub(FakeHass(), repeat_schedule=[])
     client = hub.client_for(make_blind())
     assert hub._repeat_delays(client, CMD_UP) == []
     assert hub._repeat_delays(client, CMD_DOWN) == []
 
 
-def test_all_repeats_can_be_switched_off() -> None:
-    """Drive repeats off and favourite repeat off leaves nothing scheduled."""
-    hub = make_hub(FakeHass(), repeat_count=0, **{CONF_FAV_REPEAT: False})
-    client = hub.client_for(make_blind())
-    assert hub._repeat_delays(client, CMD_UP) == []
-    assert hub._repeat_delays(client, CMD_FAV) == []
-
-
 def test_stop_not_repeated_by_default() -> None:
-    hub = make_hub(FakeHass(), repeat_count=2)
+    hub = make_hub(FakeHass(), repeat_schedule=[5, 5])
     client = hub.client_for(make_blind())
     assert hub._repeat_delays(client, CMD_STOP) == []
 
 
 def test_stop_repeated_when_opted_in() -> None:
-    hub = make_hub(
-        FakeHass(), repeat_count=2, repeat_spacing=4, **{CONF_REPEAT_STOP: True}
-    )
+    hub = make_hub(FakeHass(), repeat_schedule=[4, 4], **{CONF_REPEAT_STOP: True})
     client = hub.client_for(make_blind())
     assert hub._repeat_delays(client, CMD_STOP) == [4, 4]
 
 
 def test_favourite_gets_one_delayed_repeat() -> None:
-    hub = make_hub(FakeHass(), close_time=20)
+    hub = make_hub(FakeHass())
     client = hub.client_for(make_blind(close_time=20))
     delays = hub._repeat_delays(client, CMD_FAV)
     assert delays == [client.gp_repeat_delay]
-    # The single repeat lands after a full travel plus the idle guard.
     assert delays[0] > 20
 
 
@@ -68,43 +70,71 @@ def test_favourite_repeat_can_be_disabled() -> None:
     assert hub._repeat_delays(client, CMD_FAV) == []
 
 
-def test_a_new_command_cancels_pending_repeats() -> None:
+def test_an_individual_command_supersedes_its_own_tail() -> None:
     async def _run() -> None:
-        # Long spacing so the scheduled repeat never fires during the test.
-        hub = make_hub(FakeHass(), repeat_count=2, repeat_spacing=100)
+        hub = make_hub(FakeHass(), repeat_schedule=[100])
         client = hub.client_for(make_blind(blind_code="021.230-01"))
         hub._schedule_repeats(client, CMD_UP, client.device)
         assert client.device in hub._repeat_tasks
-        # Any new command for the blind supersedes the pending repeats.
-        hub.cancel_conflicting_repeats(client.device, "")
+        hub.supersede_individual(client.device, "")
         assert client.device not in hub._repeat_tasks
         await hub.async_shutdown()
 
     asyncio.run(_run())
 
 
-def test_group_tail_is_inherited_by_siblings() -> None:
-    """An individual command cancels the group tail but hands it to siblings."""
+def test_individual_command_hands_the_group_tail_to_siblings() -> None:
+    """Redirecting one blind keeps the group intent alive for the others."""
 
     async def _run() -> None:
-        hub = make_hub(FakeHass(), repeat_count=2, repeat_spacing=100)
-        group = "021.230-15"
+        hub = make_hub(FakeHass(), repeat_schedule=[100])
+        group = "040.001-15"
         c1 = hub.client_for(
-            make_blind(blind_id="b1", blind_code="021.230-01", parent_group=group)
+            make_blind(blind_id="b1", blind_code="040.001-01", parent_group=group)
         )
         c2 = hub.client_for(
-            make_blind(blind_id="b2", blind_code="021.230-02", parent_group=group)
+            make_blind(blind_id="b2", blind_code="040.001-02", parent_group=group)
         )
-        # A group broadcast schedules a repeat keyed to the group code.
         hub._schedule_repeats(c1, CMD_UP, group)
         assert group in hub._repeat_tasks
 
-        # An individual command for one blind supersedes the group intent, but
-        # the tail is still valid for the other blind, so it inherits it.
-        hub.cancel_conflicting_repeats(c1.device, group)
+        hub.supersede_individual(c1.device, group)
         assert group not in hub._repeat_tasks
         assert c1.device not in hub._repeat_tasks
+        # The sibling inherits the group intent as its own individual tail.
         assert c2.device in hub._repeat_tasks
+        await hub.async_shutdown()
+
+    asyncio.run(_run())
+
+
+def test_group_broadcast_clears_every_member_tail() -> None:
+    """The opposite-direction guard: a broadcast leaves no stale member tail.
+
+    Two members are given opposite individual tails (a mixed state). A fresh
+    whole hall broadcast must cancel both, with nothing inherited, so neither
+    member is left being driven the other way while channel 15 drives them all.
+    """
+
+    async def _run() -> None:
+        hub = make_hub(FakeHass(), repeat_schedule=[100])
+        group = "040.001-15"
+        c1 = hub.client_for(
+            make_blind(blind_id="b1", blind_code="040.001-01", parent_group=group)
+        )
+        c2 = hub.client_for(
+            make_blind(blind_id="b2", blind_code="040.001-02", parent_group=group)
+        )
+        hub._schedule_repeats_with_delays(c1, CMD_DOWN, c1.device, [100])
+        hub._schedule_repeats_with_delays(c2, CMD_UP, c2.device, [100])
+        assert c1.device in hub._repeat_tasks
+        assert c2.device in hub._repeat_tasks
+
+        hub._supersede_group(group)
+
+        assert c1.device not in hub._repeat_tasks
+        assert c2.device not in hub._repeat_tasks
+        assert group not in hub._repeat_tasks
         await hub.async_shutdown()
 
     asyncio.run(_run())
@@ -112,7 +142,7 @@ def test_group_tail_is_inherited_by_siblings() -> None:
 
 def test_send_transmits_once_and_counts() -> None:
     async def _run() -> None:
-        hub = make_hub(FakeHass(), repeat_count=0)
+        hub = make_hub(FakeHass(), repeat_schedule=[])
         client = hub.client_for(make_blind())
         sent: list[tuple[str, str, str]] = []
 
@@ -127,7 +157,6 @@ def test_send_transmits_once_and_counts() -> None:
         assert sent == [("021.230-01", "up", "!bf")]
         assert hub.counters.commands_sent == 1
         assert hub.counters.by_command["up"] == 1
-        # No repeats scheduled with the count at zero.
         assert client.device not in hub._repeat_tasks
 
     asyncio.run(_run())
@@ -135,7 +164,7 @@ def test_send_transmits_once_and_counts() -> None:
 
 def test_repeats_are_scheduled_when_enabled() -> None:
     async def _run() -> None:
-        hub = make_hub(FakeHass(), repeat_count=2, repeat_spacing=100)
+        hub = make_hub(FakeHass(), repeat_schedule=[100])
         client = hub.client_for(make_blind())
 
         async def fake_tcp(device: str, command: str, mc: str) -> str:

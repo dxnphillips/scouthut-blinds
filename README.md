@@ -41,31 +41,33 @@ flap, there is now evidence to look at rather than a guess to make.
 
 ## What changed, and why (the flapping)
 
-The single most likely cause of the blinds appearing to move on their own is the
-**end stop repeat**. Because up and down drive to a hard end stop, the original
-fork re-sent them several times to beat RF loss. That is safe only while the
-blind is still travelling to that end stop. The earlier fork spread eight
-repeats across roughly **seventeen minutes**, on the theory that local
-interference arrives in bursts. The cost of that is exactly the flapping: these
-motors have no feedback, so a repeat fired minutes later re-drives the blind to
-an end stop regardless of anything done with the physical remote or the vendor
-app in the meantime, and regardless of any command from a source Home Assistant
-cannot see.
+The RF to these motors is lossy enough that it can take the whole escalating
+repeat window for every blind in the hall to catch a frame and open, so the
+repeats are essential. The long schedule is kept: eight attempts over about
+seventeen minutes by default, tunable, and disable-able.
 
-So in this version the repeat is **short and tunable**:
+The flapping was never the length of that schedule. It was that the repeat
+scheduler keys a pending tail by device code, and a **group** code and an
+**individual** code can both drive the same physical blind, because a channel 15
+group broadcast reaches every member. The old cancellation could leave those two
+tails carrying **opposite directions at once**, so a blind got group-down,
+individual-up, group-down, alternating every few seconds. That is the flap, and
+the "phantom" late moves were mostly the same thing firing minutes on.
 
-- Default: **2 repeats, 6 seconds apart** (both configurable), which keeps every
-  repeat inside a normal travel.
-- The repeat count can be set to **0 to switch repeats off entirely** while
-  diagnosing.
-- Stop is no longer repeated by default.
-- The favourite still gets a single delayed repeat, and that can be turned off
-  too.
+This version makes cancellation scope aware, so a blind can never hold two tails:
 
-None of this is a guess to leave in place. The new diagnostics show whether the
-repeats are helping or hurting, and the numbers can then be dialled in from
-evidence. Start with repeats off, watch the diagnostics, and only add repeats
-back if genuine RF loss (not late re-drives) is visible.
+- A whole hall **broadcast** cancels the old group tail and every member's own
+  individual tail. Channel 15 is then the single source of truth, in one
+  direction, for the whole room.
+- An **individual** command cancels its own tail and the group tail (channel 15
+  would fight it), and hands the group's remaining intent to the **other**
+  members only.
+
+So the long repeats stay, and are safe. A full analysis is in
+[docs/FLAPPING.md](docs/FLAPPING.md). What no code can fix is a command from a
+source Home Assistant cannot see (the physical remote, the vendor app, a scene),
+or CCA itself issuing opposite commands in a burst; the diagnostics log is there
+to tell those apart from anything self inflicted.
 
 ## Installation
 
@@ -111,9 +113,8 @@ The **Configure** dialog also has a **Command timing and repeats** page:
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| End stop repeats | 2 | Re-sends of a drive after the original. 0 disables |
-| Seconds between repeats | 6 | Spacing. Keep repeats inside one travel |
-| Also repeat stop commands | off | Re-send stop as well |
+| Repeat schedule | `4, 15, 45, 120, 240, 300, 300, 300` | Seconds after each attempt for the open/close re-sends. Blank disables |
+| Also repeat stop commands | off | Re-send stop as well, on the same schedule |
 | Send one delayed favourite repeat | on | One ``gp`` re-send after a full travel |
 | Favourite idle guard | 3 | Seconds a blind must be stopped before ``gp`` |
 | Favourite settle timeout | 40 | Seconds to wait for a moving blind before ``gp`` |

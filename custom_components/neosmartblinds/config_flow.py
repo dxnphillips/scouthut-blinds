@@ -62,8 +62,7 @@ from .const import (
     CONF_PERCENT_SUPPORT,
     CONF_PROTOCOL,
     CONF_RAIL,
-    CONF_REPEAT_COUNT,
-    CONF_REPEAT_SPACING,
+    CONF_REPEAT_SCHEDULE,
     CONF_REPEAT_STOP,
     CONF_START_POSITION,
     CONF_TRAVEL_CEILING,
@@ -75,17 +74,17 @@ from .const import (
     DEFAULT_FAV_REPEAT,
     DEFAULT_FAV_SETTLE_TIMEOUT,
     DEFAULT_IO_TIMEOUT,
-    DEFAULT_REPEAT_COUNT,
-    DEFAULT_REPEAT_SPACING,
+    DEFAULT_REPEAT_SCHEDULE,
     DEFAULT_REPEAT_STOP,
     DEFAULT_TCP_PORT,
     DEFAULT_TRAVEL_CEILING,
     DOMAIN,
     LEGACY_POSITIONING,
-    MAX_REPEAT_COUNT,
     PROTOCOL_HTTP,
     PROTOCOL_TCP,
 )
+
+_DEFAULT_SCHEDULE_TEXT = ", ".join(str(int(x)) for x in DEFAULT_REPEAT_SCHEDULE)
 
 _PROTOCOL_OPTIONS = [
     SelectOptionDict(value=PROTOCOL_TCP, label="TCP (port 8839, recommended)"),
@@ -513,8 +512,7 @@ class NeoOptionsFlow(OptionsFlow):
                     CONF_COMMAND_BACKOFF: float(user_input[CONF_COMMAND_BACKOFF]),
                     CONF_AGGREGATION_PERIOD: float(user_input[CONF_AGGREGATION_PERIOD]),
                     CONF_IO_TIMEOUT: float(user_input[CONF_IO_TIMEOUT]),
-                    CONF_REPEAT_COUNT: int(user_input[CONF_REPEAT_COUNT]),
-                    CONF_REPEAT_SPACING: float(user_input[CONF_REPEAT_SPACING]),
+                    CONF_REPEAT_SCHEDULE: user_input[CONF_REPEAT_SCHEDULE],
                     CONF_REPEAT_STOP: bool(user_input[CONF_REPEAT_STOP]),
                     CONF_FAV_REPEAT: bool(user_input[CONF_FAV_REPEAT]),
                     CONF_FAV_IDLE_GUARD: float(user_input[CONF_FAV_IDLE_GUARD]),
@@ -528,21 +526,9 @@ class NeoOptionsFlow(OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(
-                    CONF_REPEAT_COUNT,
-                    default=o.get(CONF_REPEAT_COUNT, DEFAULT_REPEAT_COUNT),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0, max=MAX_REPEAT_COUNT, step=1, mode=NumberSelectorMode.BOX
-                    )
-                ),
-                vol.Required(
-                    CONF_REPEAT_SPACING,
-                    default=o.get(CONF_REPEAT_SPACING, DEFAULT_REPEAT_SPACING),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.5, max=300, step=0.5, mode=NumberSelectorMode.BOX
-                    )
-                ),
+                    CONF_REPEAT_SCHEDULE,
+                    default=o.get(CONF_REPEAT_SCHEDULE, _DEFAULT_SCHEDULE_TEXT),
+                ): str,
                 vol.Required(
                     CONF_REPEAT_STOP,
                     default=o.get(CONF_REPEAT_STOP, DEFAULT_REPEAT_STOP),
