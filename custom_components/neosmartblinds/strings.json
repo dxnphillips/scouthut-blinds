@@ -29,6 +29,9 @@
           "add_blind": "Add a blind",
           "edit_select": "Edit a blind",
           "remove_blind": "Remove a blind",
+          "add_button": "Add a button control",
+          "edit_button_select": "Edit a button control",
+          "remove_button": "Remove a button control",
           "tuning": "Command timing and repeats",
           "save": "Save changes"
         }
@@ -71,6 +74,44 @@
         "title": "Remove a blind",
         "data": {
           "id": "Blinds to remove"
+        }
+      },
+      "add_button": {
+        "title": "Add a button control",
+        "description": "Map one press of a physical button to an action on a group of blinds. Pressing it drives the whole group together, so the hub coalesces them into one command and two buttons pressed together move their walls in parallel, with no mutex or waiting. Point the event entity at the button channel, and set the press type to match its event_type attribute (check it in Developer Tools if unsure).",
+        "data": {
+          "name": "Name",
+          "event_entity": "Button event entity",
+          "event_type": "Press type (must match the entity's event_type, for example press, double_press, single_push)",
+          "button_action": "Action",
+          "covers": "Blinds this button controls",
+          "cooldown": "Cooldown after travel (seconds, presses inside this window are ignored)",
+          "travel_ceiling": "Travel ceiling (seconds, the longest a press waits for the group to stop)"
+        }
+      },
+      "edit_button_select": {
+        "title": "Edit a button control",
+        "data": {
+          "id": "Button control"
+        }
+      },
+      "edit_button": {
+        "title": "Edit {name}",
+        "description": "Change what this button does. The press type must match the entity's event_type attribute exactly.",
+        "data": {
+          "name": "Name",
+          "event_entity": "Button event entity",
+          "event_type": "Press type (must match the entity's event_type, for example press, double_press, single_push)",
+          "button_action": "Action",
+          "covers": "Blinds this button controls",
+          "cooldown": "Cooldown after travel (seconds, presses inside this window are ignored)",
+          "travel_ceiling": "Travel ceiling (seconds, the longest a press waits for the group to stop)"
+        }
+      },
+      "remove_button": {
+        "title": "Remove a button control",
+        "data": {
+          "id": "Button controls to remove"
         }
       },
       "tuning": {

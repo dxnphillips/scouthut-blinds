@@ -61,7 +61,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the covers for a hub from its configured blinds."""
-    hub: NeoHub = entry.runtime_data
+    hub: NeoHub = entry.runtime_data.hub
 
     covers = [
         NeoSmartBlindsCover(hass, entry, blind, hub.client_for(blind))

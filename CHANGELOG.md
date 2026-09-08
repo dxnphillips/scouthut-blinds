@@ -3,6 +3,19 @@
 All notable changes to NeoSmartBlinds (Scout Hut) are recorded here. This
 project follows [semantic versioning](https://semver.org).
 
+## 3.1.0
+
+- **Button controls in the integration.** Map a physical button (an event
+  entity) to toggle, open, close, stop or favourite on a group of blinds,
+  configured in the options flow. This replaces the external group toggle
+  blueprint and, with it, the whole reason that blueprint carried a shared hub
+  mutex, a post send gap and a yield to the schedule automations: the hub
+  already serialises every command, so two buttons pressed together drive their
+  walls in parallel instead of one waiting out the other. Toggle uses the same
+  converge rule as before, if any blind is open a press closes the group, and
+  each binding debounces itself through the travel and a cooldown. The bindings
+  and their last activity appear in the diagnostics dump.
+
 ## 3.0.0
 
 First release as a UI configurable, HACS distributed integration. Replaces the

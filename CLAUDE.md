@@ -33,6 +33,11 @@ Everything that must be coordinated **across** blinds on one hub lives on
 ``NeoHub`` (one per config entry). Anything about a single blind's position and
 state lives on its cover entity. Keep that boundary.
 
+``buttons.py`` sits above the covers: it listens to physical button event
+entities and drives cover groups through the normal cover services, so every
+press flows down through ``NeoHub`` and is serialised like any other command.
+``data.py`` holds both on the entry's ``runtime_data``.
+
 ## Module map
 
 | File | Responsibility |
@@ -41,8 +46,10 @@ state lives on its cover entity. Keep that boundary.
 | `models.py` | `BlindConfig`, `CommandRecord`, `HubTuning`, `HubCounters` |
 | `options.py` | Turn stored options into `HubTuning` and the blind list |
 | `hub.py` | Connection lock, backoff, aggregation, repeats, transport, diagnostics |
-| `config_flow.py` | Hub setup step, and the options flow that manages blinds and tuning |
+| `config_flow.py` | Hub setup step, and the options flow that manages blinds, buttons and tuning |
 | `cover.py` | Cover entities, positioning, three state gate, favourite, services |
+| `buttons.py` | Button bindings: listen to event entities, resolve toggle, drive groups |
+| `data.py` | `NeoData`, the config entry runtime data (hub plus button controller) |
 | `entity.py` | Base diagnostic entity, dispatcher subscription |
 | `sensor.py` / `binary_sensor.py` | Diagnostic sensors and hub connectivity |
 | `diagnostics.py` | Redacted state and recent command dump |
@@ -88,6 +95,14 @@ counter, repeat registry, lock and backoff in module globals keyed by device
 code. That leaked across reloads: the child counter never reset, so group
 broadcast silently stopped firing. All of it is now on `NeoHub`, so a reload
 starts clean. Do not move coordination state back to module scope.
+
+**Buttons need no collision avoidance.** The external toggle blueprint carried a
+shared hub mutex, a post send gap and a yield to the schedule automations, all
+purely to stop two presses hitting the hub at once. The hub already guarantees
+that with its connection lock and backoff, so `buttons.py` reproduces none of
+it: a press drives the whole group in one service call and lets the hub
+serialise. Do not add a mutex back. The only per button state is a debounce
+(busy through the travel and cooldown) so one button cannot re-trigger itself.
 
 **A new command supersedes pending repeats.** Before sending, a command cancels
 pending repeats for the blind, its group, and (if it is a group broadcast) its

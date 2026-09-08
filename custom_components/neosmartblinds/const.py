@@ -63,6 +63,47 @@ CONF_FAV_IDLE_GUARD: Final = "favourite_idle_guard"
 CONF_FAV_SETTLE_TIMEOUT: Final = "favourite_settle_timeout"
 CONF_LOG_COMMANDS: Final = "log_commands"
 
+# Button controls (entry options)
+#
+# Each binding maps one press of a physical button (an event entity) to an
+# action on a group of covers. This is the consolidation of the external
+# "blind group toggle" button blueprint: because the hub already serialises
+# every command through one connection with a backoff, the blueprint's whole
+# collision avoidance section (a shared mutex, a post send gap, a yield to the
+# schedule automations) is unnecessary here. Two buttons pressed together are
+# simply queued through the hub lock and both walls travel in parallel.
+CONF_BUTTONS: Final = "buttons"
+CONF_BUTTON_ID: Final = "id"
+CONF_EVENT_ENTITY: Final = "event_entity"
+CONF_EVENT_TYPE: Final = "event_type"
+CONF_BUTTON_ACTION: Final = "button_action"
+CONF_COVERS: Final = "covers"
+CONF_COOLDOWN: Final = "cooldown"
+CONF_TRAVEL_CEILING: Final = "travel_ceiling"
+
+ACTION_TOGGLE: Final = "toggle"
+ACTION_OPEN: Final = "open"
+ACTION_CLOSE: Final = "close"
+ACTION_STOP: Final = "stop"
+ACTION_FAVOURITE: Final = "favourite"
+BUTTON_ACTIONS: Final = (
+    ACTION_TOGGLE,
+    ACTION_OPEN,
+    ACTION_CLOSE,
+    ACTION_STOP,
+    ACTION_FAVOURITE,
+)
+
+DEFAULT_EVENT_TYPE: Final = "press"
+# How long after a press before another press for the same button is accepted.
+# Presses inside this window (and while the group is still travelling) are
+# dropped, which is the debounce.
+DEFAULT_COOLDOWN: Final = 10.0
+# A ceiling on the travel wait, so a stuck blind cannot leave a button dead.
+DEFAULT_TRAVEL_CEILING: Final = 45.0
+# Position above which a blind counts as open for the toggle rule.
+OPEN_THRESHOLD: Final = 50
+
 PROTOCOL_HTTP: Final = "http"
 PROTOCOL_TCP: Final = "tcp"
 

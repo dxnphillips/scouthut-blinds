@@ -8,14 +8,25 @@ from typing import Any
 from homeassistant.const import CONF_NAME
 
 from .const import (
+    ACTION_TOGGLE,
     CONF_BLIND_CODE,
     CONF_BLIND_ID,
+    CONF_BUTTON_ACTION,
+    CONF_BUTTON_ID,
     CONF_CLOSE_TIME,
+    CONF_COOLDOWN,
+    CONF_COVERS,
+    CONF_EVENT_ENTITY,
+    CONF_EVENT_TYPE,
     CONF_MOTOR_CODE,
     CONF_PARENT,
     CONF_PERCENT_SUPPORT,
     CONF_RAIL,
     CONF_START_POSITION,
+    CONF_TRAVEL_CEILING,
+    DEFAULT_COOLDOWN,
+    DEFAULT_EVENT_TYPE,
+    DEFAULT_TRAVEL_CEILING,
     LEGACY_POSITIONING,
 )
 
@@ -70,6 +81,52 @@ class BlindConfig:
         if self.start_position is not None:
             data[CONF_START_POSITION] = self.start_position
         return data
+
+
+@dataclass(slots=True)
+class ButtonBinding:
+    """One physical button press mapped to an action on a group of covers.
+
+    ``button_id`` is a stable internal identifier, so a binding can be renamed
+    or repointed without losing its place. ``event_type`` is matched against the
+    event entity's ``event_type`` attribute; an empty value matches any press.
+    """
+
+    button_id: str
+    name: str
+    event_entity: str
+    event_type: str = DEFAULT_EVENT_TYPE
+    action: str = ACTION_TOGGLE
+    covers: list[str] = field(default_factory=list)
+    cooldown: float = DEFAULT_COOLDOWN
+    travel_ceiling: float = DEFAULT_TRAVEL_CEILING
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ButtonBinding:
+        """Build a binding from its stored options dict."""
+        return cls(
+            button_id=str(data[CONF_BUTTON_ID]),
+            name=str(data[CONF_NAME]),
+            event_entity=str(data[CONF_EVENT_ENTITY]),
+            event_type=str(data.get(CONF_EVENT_TYPE, DEFAULT_EVENT_TYPE) or ""),
+            action=str(data.get(CONF_BUTTON_ACTION, ACTION_TOGGLE)),
+            covers=list(data.get(CONF_COVERS, []) or []),
+            cooldown=float(data.get(CONF_COOLDOWN, DEFAULT_COOLDOWN)),
+            travel_ceiling=float(data.get(CONF_TRAVEL_CEILING, DEFAULT_TRAVEL_CEILING)),
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        """Serialise back to the stored options form."""
+        return {
+            CONF_BUTTON_ID: self.button_id,
+            CONF_NAME: self.name,
+            CONF_EVENT_ENTITY: self.event_entity,
+            CONF_EVENT_TYPE: self.event_type,
+            CONF_BUTTON_ACTION: self.action,
+            CONF_COVERS: list(self.covers),
+            CONF_COOLDOWN: self.cooldown,
+            CONF_TRAVEL_CEILING: self.travel_ceiling,
+        }
 
 
 @dataclass(slots=True)

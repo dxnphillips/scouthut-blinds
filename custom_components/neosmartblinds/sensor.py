@@ -61,7 +61,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the diagnostic sensors."""
-    hub: NeoHub = entry.runtime_data
+    hub: NeoHub = entry.runtime_data.hub
     entities: list[SensorEntity] = [
         NeoCounterSensor(hub, entry, desc) for desc in COUNTERS
     ]

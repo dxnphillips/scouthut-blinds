@@ -21,6 +21,8 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -31,12 +33,24 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    ACTION_CLOSE,
+    ACTION_FAVOURITE,
+    ACTION_OPEN,
+    ACTION_STOP,
+    ACTION_TOGGLE,
     CONF_AGGREGATION_PERIOD,
     CONF_BLIND_CODE,
     CONF_BLIND_ID,
     CONF_BLINDS,
+    CONF_BUTTON_ACTION,
+    CONF_BUTTON_ID,
+    CONF_BUTTONS,
     CONF_CLOSE_TIME,
     CONF_COMMAND_BACKOFF,
+    CONF_COOLDOWN,
+    CONF_COVERS,
+    CONF_EVENT_ENTITY,
+    CONF_EVENT_TYPE,
     CONF_FAV_IDLE_GUARD,
     CONF_FAV_REPEAT,
     CONF_FAV_SETTLE_TIMEOUT,
@@ -52,8 +66,11 @@ from .const import (
     CONF_REPEAT_SPACING,
     CONF_REPEAT_STOP,
     CONF_START_POSITION,
+    CONF_TRAVEL_CEILING,
     DEFAULT_AGGREGATION_PERIOD,
     DEFAULT_COMMAND_BACKOFF,
+    DEFAULT_COOLDOWN,
+    DEFAULT_EVENT_TYPE,
     DEFAULT_FAV_IDLE_GUARD,
     DEFAULT_FAV_REPEAT,
     DEFAULT_FAV_SETTLE_TIMEOUT,
@@ -62,6 +79,7 @@ from .const import (
     DEFAULT_REPEAT_SPACING,
     DEFAULT_REPEAT_STOP,
     DEFAULT_TCP_PORT,
+    DEFAULT_TRAVEL_CEILING,
     DOMAIN,
     LEGACY_POSITIONING,
     MAX_REPEAT_COUNT,
@@ -150,6 +168,75 @@ def _normalise_blind(user_input: dict[str, Any], blind_id: str) -> dict[str, Any
     return data
 
 
+_BUTTON_ACTION_OPTIONS = [
+    SelectOptionDict(
+        value=ACTION_TOGGLE, label="Toggle (close if any open, else open)"
+    ),
+    SelectOptionDict(value=ACTION_OPEN, label="Open"),
+    SelectOptionDict(value=ACTION_CLOSE, label="Close"),
+    SelectOptionDict(value=ACTION_STOP, label="Stop"),
+    SelectOptionDict(value=ACTION_FAVOURITE, label="Favourite"),
+]
+
+
+def _button_schema(defaults: dict[str, Any]) -> vol.Schema:
+    """Build the schema for adding or editing one button binding."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
+            vol.Required(
+                CONF_EVENT_ENTITY,
+                description={"suggested_value": defaults.get(CONF_EVENT_ENTITY)},
+            ): EntitySelector(EntitySelectorConfig(domain="event")),
+            vol.Required(
+                CONF_EVENT_TYPE,
+                default=defaults.get(CONF_EVENT_TYPE, DEFAULT_EVENT_TYPE),
+            ): str,
+            vol.Required(
+                CONF_BUTTON_ACTION,
+                default=defaults.get(CONF_BUTTON_ACTION, ACTION_TOGGLE),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=_BUTTON_ACTION_OPTIONS, mode=SelectSelectorMode.DROPDOWN
+                )
+            ),
+            vol.Required(
+                CONF_COVERS,
+                description={"suggested_value": defaults.get(CONF_COVERS, [])},
+            ): EntitySelector(EntitySelectorConfig(domain="cover", multiple=True)),
+            vol.Required(
+                CONF_COOLDOWN, default=defaults.get(CONF_COOLDOWN, DEFAULT_COOLDOWN)
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0, max=120, step=1, mode=NumberSelectorMode.BOX
+                )
+            ),
+            vol.Required(
+                CONF_TRAVEL_CEILING,
+                default=defaults.get(CONF_TRAVEL_CEILING, DEFAULT_TRAVEL_CEILING),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=5, max=180, step=1, mode=NumberSelectorMode.BOX
+                )
+            ),
+        }
+    )
+
+
+def _normalise_button(user_input: dict[str, Any], button_id: str) -> dict[str, Any]:
+    """Coerce a submitted button form into the stored shape."""
+    return {
+        CONF_BUTTON_ID: button_id,
+        CONF_NAME: user_input[CONF_NAME].strip(),
+        CONF_EVENT_ENTITY: user_input[CONF_EVENT_ENTITY],
+        CONF_EVENT_TYPE: user_input.get(CONF_EVENT_TYPE, "").strip(),
+        CONF_BUTTON_ACTION: user_input[CONF_BUTTON_ACTION],
+        CONF_COVERS: list(user_input.get(CONF_COVERS, [])),
+        CONF_COOLDOWN: float(user_input[CONF_COOLDOWN]),
+        CONF_TRAVEL_CEILING: float(user_input[CONF_TRAVEL_CEILING]),
+    }
+
+
 class NeoConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the initial hub setup."""
 
@@ -208,17 +295,24 @@ class NeoOptionsFlow(OptionsFlow):
         """Initialise a lazy working copy of the options."""
         self._options: dict[str, Any] | None = None
         self._edit_id: str | None = None
+        self._edit_button_id: str | None = None
 
     def _ensure(self) -> None:
         """Copy the stored options into a working buffer once."""
         if self._options is None:
             self._options = deepcopy(dict(self.config_entry.options))
             self._options.setdefault(CONF_BLINDS, [])
+            self._options.setdefault(CONF_BUTTONS, [])
 
     @property
     def _blinds(self) -> list[dict[str, Any]]:
         assert self._options is not None
         return self._options[CONF_BLINDS]
+
+    @property
+    def _buttons(self) -> list[dict[str, Any]]:
+        assert self._options is not None
+        return self._options[CONF_BUTTONS]
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -231,6 +325,9 @@ class NeoOptionsFlow(OptionsFlow):
                 "add_blind",
                 "edit_select",
                 "remove_blind",
+                "add_button",
+                "edit_button_select",
+                "remove_button",
                 "tuning",
                 "save",
             ],
@@ -321,6 +418,88 @@ class NeoOptionsFlow(OptionsFlow):
             return await self.async_step_init()
         return self.async_show_form(
             step_id="remove_blind", data_schema=self._select_schema(multiple=True)
+        )
+
+    async def async_step_add_button(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Add a new button binding."""
+        self._ensure()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if not user_input[CONF_NAME].strip():
+                errors[CONF_NAME] = "required"
+            elif not user_input.get(CONF_COVERS):
+                errors[CONF_COVERS] = "required"
+            else:
+                self._buttons.append(_normalise_button(user_input, uuid.uuid4().hex))
+                return await self.async_step_init()
+        return self.async_show_form(
+            step_id="add_button", data_schema=_button_schema({}), errors=errors
+        )
+
+    async def async_step_edit_button_select(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Pick a button binding to edit."""
+        self._ensure()
+        if not self._buttons:
+            return await self.async_step_init()
+        if user_input is not None:
+            self._edit_button_id = user_input[CONF_BUTTON_ID]
+            return await self.async_step_edit_button()
+        return self.async_show_form(
+            step_id="edit_button_select", data_schema=self._button_select_schema()
+        )
+
+    async def async_step_edit_button(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Edit the chosen button binding."""
+        self._ensure()
+        current = next(
+            (b for b in self._buttons if b[CONF_BUTTON_ID] == self._edit_button_id),
+            None,
+        )
+        if current is None:
+            return await self.async_step_init()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if not user_input[CONF_NAME].strip():
+                errors[CONF_NAME] = "required"
+            elif not user_input.get(CONF_COVERS):
+                errors[CONF_COVERS] = "required"
+            else:
+                updated = _normalise_button(user_input, current[CONF_BUTTON_ID])
+                self._options[CONF_BUTTONS] = [
+                    updated if b[CONF_BUTTON_ID] == self._edit_button_id else b
+                    for b in self._buttons
+                ]
+                self._edit_button_id = None
+                return await self.async_step_init()
+        return self.async_show_form(
+            step_id="edit_button",
+            data_schema=_button_schema(current),
+            errors=errors,
+            description_placeholders={"name": current[CONF_NAME]},
+        )
+
+    async def async_step_remove_button(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Remove one or more button bindings."""
+        self._ensure()
+        if not self._buttons:
+            return await self.async_step_init()
+        if user_input is not None:
+            remove = set(user_input.get(CONF_BUTTON_ID, []))
+            self._options[CONF_BUTTONS] = [
+                b for b in self._buttons if b[CONF_BUTTON_ID] not in remove
+            ]
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="remove_button",
+            data_schema=self._button_select_schema(multiple=True),
         )
 
     async def async_step_tuning(
@@ -432,6 +611,27 @@ class NeoOptionsFlow(OptionsFlow):
         return vol.Schema(
             {
                 vol.Required(CONF_BLIND_ID): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        multiple=multiple,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }
+        )
+
+    def _button_select_schema(self, multiple: bool = False) -> vol.Schema:
+        """Return a select of the configured button bindings by their id."""
+        options = [
+            SelectOptionDict(
+                value=b[CONF_BUTTON_ID],
+                label=f"{b[CONF_NAME]} ({b.get(CONF_BUTTON_ACTION, ACTION_TOGGLE)})",
+            )
+            for b in self._buttons
+        ]
+        return vol.Schema(
+            {
+                vol.Required(CONF_BUTTON_ID): SelectSelector(
                     SelectSelectorConfig(
                         options=options,
                         multiple=multiple,

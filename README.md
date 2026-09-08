@@ -118,6 +118,29 @@ The **Configure** dialog also has a **Command timing and repeats** page:
 
 Changes apply on save without a restart.
 
+## Button controls
+
+Physical wall buttons are handled inside the integration, so the external toggle
+blueprint, its shared hub mutex, its post send gap and its yield to the schedule
+automations are no longer needed. Because the hub already sends one command at a
+time with a backoff, two buttons pressed together are simply queued through it
+and both walls travel in parallel instead of one waiting on the other.
+
+Add a binding under **Configure → Add a button control**:
+
+| Field | Notes |
+| --- | --- |
+| Button event entity | The `event.*` entity for the button channel |
+| Press type | Must match the entity's `event_type` (for example `press`, `double_press`, `single_push`). Check it in Developer Tools |
+| Action | Toggle, open, close, stop or favourite |
+| Blinds | The covers this button drives, commanded together |
+| Cooldown | Seconds after travel before another press is accepted (the debounce) |
+| Travel ceiling | The longest a press waits for the group to stop |
+
+Toggle converges the group: if any blind is open a press closes them all, and
+only when every blind is closed does a press open them. Give the blinds in a
+group the same room code so a press becomes one channel 15 broadcast.
+
 ## Diagnostics
 
 This is the reason for the rewrite.

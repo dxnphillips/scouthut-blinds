@@ -12,24 +12,31 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .buttons import ButtonController
 from .const import PLATFORMS
+from .data import NeoData
 from .hub import NeoHub
-from .options import build_tuning
+from .options import build_tuning, buttons_from_options
 
 _LOGGER = logging.getLogger(__name__)
 
 # Plain alias rather than a PEP 695 ``type`` statement so the module still
 # byte compiles under Python 3.11 tooling; runtime and typing are identical.
-NeoConfigEntry = ConfigEntry[NeoHub]
+NeoConfigEntry = ConfigEntry[NeoData]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: NeoConfigEntry) -> bool:
     """Set up a hub from a config entry."""
     tuning = build_tuning(entry.options)
     hub = NeoHub(hass, entry.entry_id, dict(entry.data), tuning)
-    entry.runtime_data = hub
+    buttons = ButtonController(hass, entry, buttons_from_options(entry.options))
+    entry.runtime_data = NeoData(hub=hub, buttons=buttons)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Start listening once the cover entities exist, so a press has covers to
+    # drive. The hub itself serialises the commands, so no button coordination
+    # (mutex, gap, yield) is needed here.
+    buttons.async_start()
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     return True
 
@@ -38,7 +45,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: NeoConfigEntry) -> bool
     """Unload a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        await entry.runtime_data.async_shutdown()
+        data = entry.runtime_data
+        data.buttons.async_stop()
+        await data.hub.async_shutdown()
     return unloaded
 
 

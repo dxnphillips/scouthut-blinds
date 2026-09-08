@@ -45,6 +45,9 @@ def _stub_homeassistant() -> None:
     class _HomeAssistant:
         """Placeholder Home Assistant type."""
 
+    class _Event:
+        """Placeholder event type."""
+
     class _ConfigEntry:
         """Placeholder config entry that supports ConfigEntry[...] subscripting."""
 
@@ -55,6 +58,9 @@ def _stub_homeassistant() -> None:
         def __init__(self, total: float | None = None) -> None:
             self.total = total
 
+    def _callback(func):
+        return func
+
     _install_stub("homeassistant", package=True)
     _install_stub(
         "homeassistant.const",
@@ -62,8 +68,19 @@ def _stub_homeassistant() -> None:
         CONF_HOST="host",
         CONF_PORT="port",
         CONF_NAME="name",
+        STATE_OPEN="open",
+        STATE_CLOSED="closed",
+        STATE_OPENING="opening",
+        STATE_CLOSING="closing",
+        STATE_UNAVAILABLE="unavailable",
+        STATE_UNKNOWN="unknown",
     )
-    _install_stub("homeassistant.core", HomeAssistant=_HomeAssistant)
+    _install_stub(
+        "homeassistant.core",
+        HomeAssistant=_HomeAssistant,
+        Event=_Event,
+        callback=_callback,
+    )
     _install_stub("homeassistant.config_entries", ConfigEntry=_ConfigEntry)
     _install_stub("homeassistant.helpers", package=True)
     _install_stub(
@@ -73,6 +90,10 @@ def _stub_homeassistant() -> None:
     _install_stub(
         "homeassistant.helpers.dispatcher",
         async_dispatcher_send=lambda *args, **kwargs: None,
+    )
+    _install_stub(
+        "homeassistant.helpers.event",
+        async_track_state_change_event=lambda *args, **kwargs: lambda: None,
     )
     _install_stub("aiohttp", ClientTimeout=_ClientTimeout)
 

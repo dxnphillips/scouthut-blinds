@@ -21,7 +21,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the hub connectivity sensor."""
-    hub: NeoHub = entry.runtime_data
+    hub: NeoHub = entry.runtime_data.hub
     async_add_entities([NeoHubConnectivity(hub, entry)])
 
 

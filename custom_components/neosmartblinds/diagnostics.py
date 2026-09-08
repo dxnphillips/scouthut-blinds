@@ -27,7 +27,8 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return a redacted snapshot of hub state and recent activity."""
-    hub: NeoHub = entry.runtime_data
+    runtime = entry.runtime_data
+    hub: NeoHub = runtime.hub
     tuning = build_tuning(entry.options)
 
     data = {
@@ -35,5 +36,6 @@ async def async_get_config_entry_diagnostics(
         "tuning": asdict(tuning),
         "blind_count": len(entry.options.get(CONF_BLINDS, [])),
         "hub": hub.diagnostics(),
+        "buttons": runtime.buttons.diagnostics(),
     }
     return async_redact_data(data, REDACT)

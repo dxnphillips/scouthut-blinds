@@ -12,6 +12,7 @@ from typing import Any
 from .const import (
     CONF_AGGREGATION_PERIOD,
     CONF_BLINDS,
+    CONF_BUTTONS,
     CONF_COMMAND_BACKOFF,
     CONF_FAV_IDLE_GUARD,
     CONF_FAV_REPEAT,
@@ -33,7 +34,7 @@ from .const import (
     MAX_REPEAT_COUNT,
     MIN_COMMAND_BACKOFF,
 )
-from .models import BlindConfig, HubTuning
+from .models import BlindConfig, ButtonBinding, HubTuning
 
 
 def build_tuning(options: Mapping[str, Any]) -> HubTuning:
@@ -76,3 +77,9 @@ def blinds_from_options(options: Mapping[str, Any]) -> list[BlindConfig]:
     """Read the configured blinds out of the entry options."""
     raw = options.get(CONF_BLINDS) or []
     return [BlindConfig.from_dict(item) for item in raw]
+
+
+def buttons_from_options(options: Mapping[str, Any]) -> list[ButtonBinding]:
+    """Read the configured button bindings out of the entry options."""
+    raw = options.get(CONF_BUTTONS) or []
+    return [ButtonBinding.from_dict(item) for item in raw]
