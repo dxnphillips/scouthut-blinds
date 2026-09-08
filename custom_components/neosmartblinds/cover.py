@@ -17,6 +17,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -246,14 +247,21 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
         self._blind = blind
         self._client = client
 
-        self._attr_name = blind.name
+        # Each blind is its own device, and the cover is that device's primary
+        # entity (name None), so its entity id comes from the device name alone,
+        # for example cover.hall_front_left. That keeps the ids the YAML platform
+        # produced, which the CCA automations, the cover group and the button
+        # bindings all reference, rather than a compound cover.hub_hall_front_left.
+        # Each blind device nests under the hub device via via_device.
+        self._attr_name = None
         self._attr_unique_id = client.unique_id(DOMAIN)
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "name": entry.title,
-            "manufacturer": "NeoSmartBlinds",
-            "model": "Smart Controller",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, blind.blind_id)},
+            name=blind.name,
+            manufacturer="NeoSmartBlinds",
+            model="bf motor blind",
+            via_device=(DOMAIN, entry.entry_id),
+        )
 
         self._percent_support = blind.percent_support
         self._close_time = int(blind.close_time)
@@ -419,7 +427,7 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
             self._pending_positioning_command = None
             if self._stopped is None:
                 if result:
-                    _LOGGER.error("%s move done but state broken", self._attr_name)
+                    _LOGGER.error("%s move done but state broken", self._blind.name)
             else:
                 self._stopped.set()
             self.async_write_ha_state()
@@ -493,7 +501,7 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
 
     async def async_send_raw_command(self, command: str) -> None:
         """Send an arbitrary raw command to this blind, for troubleshooting."""
-        _LOGGER.info("%s, manual command: %s", self._attr_name, command)
+        _LOGGER.info("%s, manual command: %s", self._blind.name, command)
         await self._client.async_send_raw(command)
 
     async def async_adjust_blind(self, pos: int) -> None:
@@ -515,7 +523,7 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
                 _LOGGER.warning(
                     "%s: position %s is unreachable on bf motors and was ignored. "
                     "Valid targets are 0 (close), 100 (open) and 50 (favourite).",
-                    self._attr_name,
+                    self._blind.name,
                     pos,
                 )
             return

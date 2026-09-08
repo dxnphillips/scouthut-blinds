@@ -75,6 +75,12 @@ back if genuine RF loss (not late re-drives) is visible.
 3. Go to **Settings → Devices & Services → Add Integration** and choose
    **NeoSmartBlinds**.
 
+**Migrating from the old YAML `cover:` platform?** Each blind becomes its own
+device, so a blind named **Hall Front Left** keeps the entity id
+`cover.hall_front_left` that your automations and groups already reference. The
+step by step migration, including how to free the old ids so nothing breaks, is
+in [docs/MIGRATION.md](docs/MIGRATION.md).
+
 ## Setup
 
 **Add the hub.** Enter a name, the controller IP, the 24 character hub ID from

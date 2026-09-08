@@ -5,6 +5,12 @@ project follows [semantic versioning](https://semver.org).
 
 ## 3.1.0
 
+- **Entity ids are preserved from the YAML platform.** Each blind is now its own
+  device with the cover as its primary entity, so a blind named Hall Front Left
+  yields `cover.hall_front_left`, the id the old platform produced and the id the
+  CCA automations, the cover group and the button bindings reference. A migration
+  guide for moving off the YAML platform without breaking those references is in
+  `docs/MIGRATION.md`.
 - **Button controls in the integration.** Map a physical button (an event
   entity) to toggle, open, close, stop or favourite on a group of blinds,
   configured in the options flow. This replaces the external group toggle
