@@ -17,8 +17,9 @@ from custom_components.neosmartblinds.const import (
     CMD_FAV,
     CMD_STOP,
     CMD_UP,
-    CONF_FAV_REPEAT,
+    CONF_FAV_REPEAT_MULTIPLIERS,
     CONF_REPEAT_STOP,
+    DEFAULT_FAV_REPEAT_MULTIPLIERS,
     DEFAULT_REPEAT_SCHEDULE,
 )
 
@@ -56,16 +57,21 @@ def test_stop_repeated_when_opted_in() -> None:
     assert hub._repeat_delays(client, CMD_STOP) == [4, 4]
 
 
-def test_favourite_gets_one_delayed_repeat() -> None:
+def test_favourite_repeats_escalate() -> None:
+    """The favourite needs many repeats, spaced by multiples of a full travel."""
     hub = make_hub(FakeHass())
     client = hub.client_for(make_blind(close_time=20))
     delays = hub._repeat_delays(client, CMD_FAV)
-    assert delays == [client.gp_repeat_delay]
-    assert delays[0] > 20
+    assert delays == [
+        m * client.gp_repeat_delay for m in DEFAULT_FAV_REPEAT_MULTIPLIERS
+    ]
+    # Six attempts, every one at least a full travel apart so gp lands stationary.
+    assert len(delays) == 6
+    assert min(delays) >= client.gp_repeat_delay
 
 
-def test_favourite_repeat_can_be_disabled() -> None:
-    hub = make_hub(FakeHass(), **{CONF_FAV_REPEAT: False})
+def test_favourite_repeats_can_be_disabled() -> None:
+    hub = make_hub(FakeHass(), **{CONF_FAV_REPEAT_MULTIPLIERS: []})
     client = hub.client_for(make_blind())
     assert hub._repeat_delays(client, CMD_FAV) == []
 

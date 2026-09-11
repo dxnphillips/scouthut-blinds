@@ -120,7 +120,7 @@
         "data": {
           "repeat_schedule": "Repeat schedule (seconds, comma separated, blank to disable)",
           "repeat_stop": "Also repeat stop commands",
-          "favourite_repeat": "Send one delayed favourite repeat",
+          "favourite_repeat_multipliers": "Favourite repeat schedule (multiples of a full travel, comma separated; the favourite is the least reliable command so it needs several; blank to disable)",
           "favourite_idle_guard": "Favourite idle guard, seconds a blind must be stopped before gp",
           "favourite_settle_timeout": "Favourite settle timeout, seconds to wait for a moving blind before gp",
           "command_backoff": "Minimum seconds between commands (never below 0.5)",

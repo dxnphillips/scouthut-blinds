@@ -51,6 +51,24 @@ def test_schedule_through_build_tuning() -> None:
     assert build_tuning({CONF_REPEAT_SCHEDULE: ""}).repeat_schedule == []
 
 
+def test_favourite_multipliers() -> None:
+    """Favourite multipliers default to the escalating list and floor at one."""
+    from custom_components.neosmartblinds.const import (
+        DEFAULT_FAV_REPEAT_MULTIPLIERS,
+        MIN_FAV_MULTIPLIER,
+    )
+    from custom_components.neosmartblinds.options import parse_fav_multipliers
+
+    assert parse_fav_multipliers(None) == list(DEFAULT_FAV_REPEAT_MULTIPLIERS)
+    assert parse_fav_multipliers("1, 2, 4") == [1, 2, 4]
+    assert parse_fav_multipliers("") == []
+    # Below one would fire gp mid travel, so it is floored.
+    assert parse_fav_multipliers("0.2, 3") == [MIN_FAV_MULTIPLIER, 3]
+    assert build_tuning({}).favourite_repeat_multipliers == list(
+        DEFAULT_FAV_REPEAT_MULTIPLIERS
+    )
+
+
 def test_blinds_roundtrip() -> None:
     """A stored blind survives a serialise and parse unchanged."""
     blind = BlindConfig(

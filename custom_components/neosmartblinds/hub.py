@@ -431,8 +431,13 @@ class NeoHub:
             return list(self.tuning.repeat_schedule)
         if command == CMD_STOP and self.tuning.repeat_stop:
             return list(self.tuning.repeat_schedule)
-        if command == CMD_FAV and self.tuning.favourite_repeat:
-            return [client.gp_repeat_delay]
+        if command == CMD_FAV:
+            # Each entry is a multiple of this blind's full travel window, so
+            # every gp repeat lands on a stationary blind, which gp requires.
+            return [
+                m * client.gp_repeat_delay
+                for m in self.tuning.favourite_repeat_multipliers
+            ]
         return []
 
     def _schedule_repeats(self, client: BlindClient, command: str, device: str) -> None:

@@ -82,11 +82,16 @@ tail so channel 15 is the sole driver; an individual command
 intent to the OTHER members only. A blind must never be able to hold two tails.
 Keep that invariant. The schedule is one tunable list (blank disables).
 
-**The favourite is guarded.** ``bf`` motors ignore ``gp`` unless stopped for
-about three seconds. The favourite path waits for settle, waits out the worst
-case travel, then enforces the idle guard. It cancels pending repeats first so
-no drive repeat can start a new travel while it waits. Only ``gp`` is sent;
-``i2`` is a ``no`` motor command these motors drop.
+**The favourite is guarded, and repeated many times.** ``bf`` motors ignore
+``gp`` unless stopped for about three seconds. The favourite path waits for
+settle, waits out the worst case travel, then enforces the idle guard. It cancels
+pending repeats first so no drive repeat can start a new travel while it waits.
+Only ``gp`` is sent; ``i2`` is a ``no`` motor command these motors drop. ``gp``
+is also the worst delivered command: a per wall shade cannot use the channel 15
+broadcast, so it unicasts and lands about one time in five. It therefore needs
+MANY repeats, spaced by multiples of a full travel so each lands on a stationary
+blind (``favourite_repeat_multipliers``, default 1,1,2,4,8,8). Do not cut this
+back to one; that regressed shading badly in 3.2.0.
 
 **The honest three state gate.** ``bf`` motors reach only a hard end stop or the
 single favourite. `SET_POSITION` is advertised (Home Assistant blocks the service

@@ -6,12 +6,12 @@ import asyncio
 
 from scout_testkit import FakeHass, make_blind, make_hub
 
-from custom_components.neosmartblinds.const import CONF_FAV_REPEAT
+from custom_components.neosmartblinds.const import CONF_FAV_REPEAT_MULTIPLIERS
 
 
 def _capture_hub():
     """A hub whose transport records frames and whose backoff is a no op."""
-    hub = make_hub(FakeHass(), repeat_schedule=[], **{CONF_FAV_REPEAT: False})
+    hub = make_hub(FakeHass(), repeat_schedule=[], **{CONF_FAV_REPEAT_MULTIPLIERS: []})
     sent: list[tuple[str, str, str]] = []
 
     async def fake_tcp(device: str, command: str, mc: str) -> str:

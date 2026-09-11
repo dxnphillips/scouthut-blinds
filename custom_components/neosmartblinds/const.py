@@ -57,7 +57,7 @@ CONF_AGGREGATION_PERIOD: Final = "aggregation_period"
 CONF_IO_TIMEOUT: Final = "io_timeout"
 CONF_REPEAT_SCHEDULE: Final = "repeat_schedule"
 CONF_REPEAT_STOP: Final = "repeat_stop"
-CONF_FAV_REPEAT: Final = "favourite_repeat"
+CONF_FAV_REPEAT_MULTIPLIERS: Final = "favourite_repeat_multipliers"
 CONF_FAV_IDLE_GUARD: Final = "favourite_idle_guard"
 CONF_FAV_SETTLE_TIMEOUT: Final = "favourite_settle_timeout"
 CONF_LOG_COMMANDS: Final = "log_commands"
@@ -154,10 +154,22 @@ DEFAULT_FAV_IDLE_GUARD: Final = 3.0
 # How long to wait for a moving blind to settle before sending gp. If it is
 # still moving after this, we send anyway rather than hang forever.
 DEFAULT_FAV_SETTLE_TIMEOUT: Final = 40.0
-# Margin added on top of a full travel before the delayed favourite repeat, so
-# the repeat always lands on a genuinely stationary motor.
+# Margin added on top of a full travel before a favourite repeat, so the repeat
+# always lands on a genuinely stationary motor.
 FAV_REPEAT_MARGIN: Final = 2.0
-DEFAULT_FAV_REPEAT: Final = True
+# The favourite (gp) is the worst delivered command on these motors: a per wall
+# shade cannot use the reliable channel 15 broadcast, so it goes out as an
+# individual unicast that lands roughly one time in five. It therefore needs
+# MANY repeats, not one. Each entry is a multiple of a full travel window
+# (close_time + idle guard + margin), so every repeat still lands on a
+# stationary blind, which gp requires, while the escalation spreads the attempts
+# across minutes to sample different moments on the noisy air. This is the
+# original fork's proven schedule; it gives roughly seven attempts and about an
+# 80 percent chance of landing, where a single repeat gave about 35 percent.
+DEFAULT_FAV_REPEAT_MULTIPLIERS: Final = (1.0, 1.0, 2.0, 4.0, 8.0, 8.0)
+# A multiplier below one would fire gp before a full travel had elapsed, onto a
+# possibly still moving blind, so every entry is floored here.
+MIN_FAV_MULTIPLIER: Final = 1.0
 
 # ---------------------------------------------------------------------------
 # End stop repeat scheduler

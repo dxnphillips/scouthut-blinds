@@ -52,7 +52,7 @@ from .const import (
     CONF_EVENT_ENTITY,
     CONF_EVENT_TYPE,
     CONF_FAV_IDLE_GUARD,
-    CONF_FAV_REPEAT,
+    CONF_FAV_REPEAT_MULTIPLIERS,
     CONF_FAV_SETTLE_TIMEOUT,
     CONF_HUB_ID,
     CONF_IO_TIMEOUT,
@@ -71,7 +71,7 @@ from .const import (
     DEFAULT_COOLDOWN,
     DEFAULT_EVENT_TYPE,
     DEFAULT_FAV_IDLE_GUARD,
-    DEFAULT_FAV_REPEAT,
+    DEFAULT_FAV_REPEAT_MULTIPLIERS,
     DEFAULT_FAV_SETTLE_TIMEOUT,
     DEFAULT_IO_TIMEOUT,
     DEFAULT_REPEAT_SCHEDULE,
@@ -85,6 +85,9 @@ from .const import (
 )
 
 _DEFAULT_SCHEDULE_TEXT = ", ".join(str(int(x)) for x in DEFAULT_REPEAT_SCHEDULE)
+_DEFAULT_FAV_MULTIPLIERS_TEXT = ", ".join(
+    str(int(x)) for x in DEFAULT_FAV_REPEAT_MULTIPLIERS
+)
 
 _PROTOCOL_OPTIONS = [
     SelectOptionDict(value=PROTOCOL_TCP, label="TCP (port 8839, recommended)"),
@@ -514,7 +517,9 @@ class NeoOptionsFlow(OptionsFlow):
                     CONF_IO_TIMEOUT: float(user_input[CONF_IO_TIMEOUT]),
                     CONF_REPEAT_SCHEDULE: user_input[CONF_REPEAT_SCHEDULE],
                     CONF_REPEAT_STOP: bool(user_input[CONF_REPEAT_STOP]),
-                    CONF_FAV_REPEAT: bool(user_input[CONF_FAV_REPEAT]),
+                    CONF_FAV_REPEAT_MULTIPLIERS: user_input[
+                        CONF_FAV_REPEAT_MULTIPLIERS
+                    ],
                     CONF_FAV_IDLE_GUARD: float(user_input[CONF_FAV_IDLE_GUARD]),
                     CONF_FAV_SETTLE_TIMEOUT: float(user_input[CONF_FAV_SETTLE_TIMEOUT]),
                     CONF_LOG_COMMANDS: bool(user_input[CONF_LOG_COMMANDS]),
@@ -534,9 +539,11 @@ class NeoOptionsFlow(OptionsFlow):
                     default=o.get(CONF_REPEAT_STOP, DEFAULT_REPEAT_STOP),
                 ): BooleanSelector(),
                 vol.Required(
-                    CONF_FAV_REPEAT,
-                    default=o.get(CONF_FAV_REPEAT, DEFAULT_FAV_REPEAT),
-                ): BooleanSelector(),
+                    CONF_FAV_REPEAT_MULTIPLIERS,
+                    default=o.get(
+                        CONF_FAV_REPEAT_MULTIPLIERS, _DEFAULT_FAV_MULTIPLIERS_TEXT
+                    ),
+                ): str,
                 vol.Required(
                     CONF_FAV_IDLE_GUARD,
                     default=o.get(CONF_FAV_IDLE_GUARD, DEFAULT_FAV_IDLE_GUARD),

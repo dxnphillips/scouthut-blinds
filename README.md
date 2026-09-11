@@ -115,7 +115,7 @@ The **Configure** dialog also has a **Command timing and repeats** page:
 | --- | --- | --- |
 | Repeat schedule | `4, 15, 45, 120, 240, 300, 300, 300` | Seconds after each attempt for the open/close re-sends. Blank disables |
 | Also repeat stop commands | off | Re-send stop as well, on the same schedule |
-| Send one delayed favourite repeat | on | One ``gp`` re-send after a full travel |
+| Favourite repeat schedule | `1, 1, 2, 4, 8, 8` | Multiples of a full travel between favourite (`gp`) re-sends. `gp` is the least reliable command, so it needs several. Blank disables |
 | Favourite idle guard | 3 | Seconds a blind must be stopped before ``gp`` |
 | Favourite settle timeout | 40 | Seconds to wait for a moving blind before ``gp`` |
 | Minimum seconds between commands | 0.7 | The backoff. Never below 0.5 |

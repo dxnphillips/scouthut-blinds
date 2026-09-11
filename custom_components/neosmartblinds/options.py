@@ -15,7 +15,7 @@ from .const import (
     CONF_BUTTONS,
     CONF_COMMAND_BACKOFF,
     CONF_FAV_IDLE_GUARD,
-    CONF_FAV_REPEAT,
+    CONF_FAV_REPEAT_MULTIPLIERS,
     CONF_FAV_SETTLE_TIMEOUT,
     CONF_IO_TIMEOUT,
     CONF_LOG_COMMANDS,
@@ -24,13 +24,14 @@ from .const import (
     DEFAULT_AGGREGATION_PERIOD,
     DEFAULT_COMMAND_BACKOFF,
     DEFAULT_FAV_IDLE_GUARD,
-    DEFAULT_FAV_REPEAT,
+    DEFAULT_FAV_REPEAT_MULTIPLIERS,
     DEFAULT_FAV_SETTLE_TIMEOUT,
     DEFAULT_IO_TIMEOUT,
     DEFAULT_REPEAT_SCHEDULE,
     DEFAULT_REPEAT_STOP,
     MAX_REPEAT_ENTRIES,
     MIN_COMMAND_BACKOFF,
+    MIN_FAV_MULTIPLIER,
     MIN_REPEAT_SPACING,
 )
 from .models import BlindConfig, ButtonBinding, HubTuning
@@ -63,6 +64,33 @@ def parse_repeat_schedule(value: Any) -> list[float]:
     return delays[:MAX_REPEAT_ENTRIES]
 
 
+def parse_fav_multipliers(value: Any) -> list[float]:
+    """Turn a favourite repeat multiplier list into a clamped list.
+
+    Accepts a list of numbers or a comma separated string. Each entry is a
+    multiple of a blind's full travel window and is floored at one, so a
+    favourite repeat can never fire before the blind is stationary. An empty
+    value means no favourite repeats.
+    """
+    if value is None:
+        items: list[Any] = list(DEFAULT_FAV_REPEAT_MULTIPLIERS)
+    elif isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    else:
+        items = list(value)
+
+    multipliers: list[float] = []
+    for item in items:
+        try:
+            factor = float(item)
+        except (TypeError, ValueError):
+            continue
+        if factor <= 0:
+            continue
+        multipliers.append(max(MIN_FAV_MULTIPLIER, factor))
+    return multipliers[:MAX_REPEAT_ENTRIES]
+
+
 def build_tuning(options: Mapping[str, Any]) -> HubTuning:
     """Resolve the timing and repeat options, clamped to safe bounds.
 
@@ -81,7 +109,9 @@ def build_tuning(options: Mapping[str, Any]) -> HubTuning:
         io_timeout=max(1.0, float(options.get(CONF_IO_TIMEOUT, DEFAULT_IO_TIMEOUT))),
         repeat_schedule=parse_repeat_schedule(options.get(CONF_REPEAT_SCHEDULE)),
         repeat_stop=bool(options.get(CONF_REPEAT_STOP, DEFAULT_REPEAT_STOP)),
-        favourite_repeat=bool(options.get(CONF_FAV_REPEAT, DEFAULT_FAV_REPEAT)),
+        favourite_repeat_multipliers=parse_fav_multipliers(
+            options.get(CONF_FAV_REPEAT_MULTIPLIERS)
+        ),
         favourite_idle_guard=max(
             0.0, float(options.get(CONF_FAV_IDLE_GUARD, DEFAULT_FAV_IDLE_GUARD))
         ),

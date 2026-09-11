@@ -3,6 +3,20 @@
 All notable changes to NeoSmartBlinds (Scout Hut) are recorded here. This
 project follows [semantic versioning](https://semver.org).
 
+## 3.3.0
+
+- **Fix missed favourite and shading commands.** 3.2.0 restored the long
+  escalating schedule for open and close but left the favourite (`gp`) with only
+  a single delayed repeat, down from the original fork's six. Shading drives the
+  blinds to the favourite, and `gp` is the worst delivered command on these
+  motors (a per wall shade cannot use the reliable channel 15 broadcast, so it
+  unicasts and lands roughly one time in five), so shading missed far more often:
+  two attempts land about 35 percent of the time against about 80 percent for
+  seven. The escalating favourite repeat schedule is restored, `1, 1, 2, 4, 8, 8`
+  multiples of a full travel by default (so every repeat lands on a stationary
+  blind, which `gp` requires), and is now a configurable list (blank disables).
+  Open and close are unchanged.
+
 ## 3.2.0
 
 - **Flapping fix, and the repeats are kept long.** The RF loss is severe enough

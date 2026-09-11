@@ -164,7 +164,7 @@ class HubTuning:
     io_timeout: float
     repeat_schedule: list[float]
     repeat_stop: bool
-    favourite_repeat: bool
+    favourite_repeat_multipliers: list[float]
     favourite_idle_guard: float
     favourite_settle_timeout: float
     log_commands: bool
